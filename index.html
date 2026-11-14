@@ -1,0 +1,471 @@
+!DOCTYPE html
+html lang=az
+head
+    meta charset=UTF-8
+    meta name=viewport content=width=device-width, initial-scale=1.0
+    title30°–60°–90° Üçbucağı Simulyasiyasıtitle
+    script src=httpscdn.tailwindcss.comscript
+    link href=httpsfonts.googleapis.comcss2family=Interwght@400;500;600;700&display=swap rel=stylesheet
+    style
+        body {
+            font-family 'Inter', sans-serif;
+            background-color #f8fafc;
+        }
+        canvas {
+            touch-action none;
+        }
+    style
+head
+body class=min-h-screen flex flex-col items-center justify-center p-4 smp-6 text-slate-800
+
+    !-- Əsas Konteyner --
+    div class=w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden
+        
+        !-- Başlıq Hissəsi --
+        div class=bg-indigo-600 text-white p-5 smp-6
+            h1 class=text-xl smtext-2xl font-bold tracking-tight
+                30°–60°–90° Xüsusi Düzbucaqlı Üçbucağının Alınması
+            h1
+            p class=text-indigo-100 text-sm smtext-base mt-1
+                Tərəfi 2 vahid olan bərabərtərəfli üçbucaqdan tərəflərin nisbətinin çıxarılışı
+            p
+        div
+
+        !-- Məzmun Bölməsi (Grid) --
+        div class=grid grid-cols-1 lggrid-cols-12
+            
+            !-- Sol Tərəf İnteraktiv Kanvas --
+            div class=lgcol-span-7 bg-slate-50 border-b lgborder-b-0 lgborder-r border-slate-200 p-4 flex flex-col items-center justify-center relative
+                div class=w-full aspect-square max-h-[420px] relative flex items-center justify-center
+                    canvas id=triangleCanvas class=w-full h-fullcanvas
+                div
+                
+                !-- İnteraktiv Sürüşdürücü (Slider) --
+                div class=w-full max-w-md mt-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center gap-3
+                    span class=text-xs font-semibold text-slate-500 whitespace-nowrapBölmə animasiyasıspan
+                    input type=range id=splitSlider min=0 max=100 value=0 class=w-full accent-indigo-600 cursor-pointer
+                div
+            div
+
+            !-- Sağ Tərəf Addımlar və İzahlar --
+            div class=lgcol-span-5 p-5 smp-6 flex flex-col justify-between bg-white
+                div
+                    !-- Addım Göstəricisi --
+                    div class=flex items-center justify-between mb-4
+                        span id=stepBadge class=px-3 py-1 bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-full
+                            Addım 1  5
+                        span
+                        div class=flex gap-1.5 id=stepDots
+                            !-- Nöqtələr JS ilə yaradılacaq --
+                        div
+                    div
+
+                    !-- Addım Başlığı və Mətni --
+                    h2 id=stepTitle class=text-lg smtext-xl font-bold text-slate-900 mb-3
+                        Bərabərtərəfli Üçbucaq
+                    h2
+                    div id=stepDescription class=text-slate-600 text-sm smtext-base space-y-3 leading-relaxed
+                        !-- İzah mətni JS ilə yenilənəcək --
+                    div
+
+                    !-- Riyazi Düstur Qutusu --
+                    div id=formulaBox class=mt-5 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 font-medium text-sm hidden
+                        !-- Düstur JS ilə göstəriləcək --
+                    div
+                div
+
+                !-- İdarəetmə Düymələri --
+                div class=mt-8 pt-4 border-t border-slate-100 flex items-center justify-between gap-3
+                    button id=prevBtn class=px-4 py-2.5 rounded-xl font-medium text-sm bg-slate-100 text-slate-700 hoverbg-slate-200 disabledopacity-40 disabledcursor-not-allowed transition flex-1
+                        ← Əvvəlki
+                    button
+                    button id=nextBtn class=px-4 py-2.5 rounded-xl font-medium text-sm bg-indigo-600 text-white hoverbg-indigo-700 shadow-sm shadow-indigo-200 transition flex-1
+                        Növbəti →
+                    button
+                div
+            div
+
+        div
+    div
+
+    script
+         DOM Elementləri
+        const canvas = document.getElementById('triangleCanvas');
+        const ctx = canvas.getContext('2d');
+        const splitSlider = document.getElementById('splitSlider');
+        const stepBadge = document.getElementById('stepBadge');
+        const stepTitle = document.getElementById('stepTitle');
+        const stepDescription = document.getElementById('stepDescription');
+        const formulaBox = document.getElementById('formulaBox');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const stepDots = document.getElementById('stepDots');
+
+         Simulyasiya Vəziyyəti (State)
+        let currentStep = 0;
+        let splitProgress = 0;  0-dan 1-ə qədər (üçbucaqların ayrılma dərəcəsi)
+        let targetSplit = 0;
+        let heightLineProgress = 0;  Hündürlüyün çəkilmə animasiyası
+        let targetHeightLine = 0;
+
+         Addımların Məlumatları
+        const steps = [
+            {
+                title 1. Bərabərtərəfli Üçbucaq,
+                desc `
+                    pBütün tərəfləri strong2 vahidstrong olan strongABCstrong bərabərtərəfli üçbucağını götürək.p
+                    pBərabərtərəfli üçbucağın bütün daxili bucaqları bərabərdir və hər biri strong60°strong təşkil edir.p
+                `,
+                formula AB = BC = AC = 2    ∠A = ∠B = ∠C = 60°,
+                showHeight false,
+                split 0,
+                highlightRight false,
+                showPythagoras false
+            },
+            {
+                title 2. Hündürlüyün Çəkilməsi,
+                desc `
+                    pstrongBstrong təpəsindən strongACstrong oturacağına strongBDstrong hündürlüyünü endirək.p
+                    pBərabərtərəfli üçbucaqda hündürlük həm də strongmedianstrong və strongtənböləndirstrongp
+                    ul class=list-disc pl-5 space-y-1 text-slate-700
+                        liOturacağı yarıya bölür strongAD = DC = 1strongli
+                        liTəpə bucağını yarıya bölür strong60° ÷ 2 = 30°strongli
+                    ul
+                `,
+                formula AD = DC = 2 ÷ 2 = 1    ∠ABD = ∠CBD = 30°,
+                showHeight true,
+                split 0,
+                highlightRight false,
+                showPythagoras false
+            },
+            {
+                title 3. İki Konqruyent Üçbucağa Bölünmə,
+                desc `
+                    pHündürlük üçbucağı iki eyni (konqruyent) düzbucaqlı üçbucağa ayırır.p
+                    pAlınan üçbucaqların bucaqlarına diqqət yetirin strong30°strong, strong60°strong və strong90°strong.p
+                    p class=text-xs text-indigo-600 font-medium Aşağıdakı sürüşdürücü ilə üçbucaqları özünüz də ayıra bilərsiniz.p
+                `,
+                formula △ABD ≅ △CBD (30° – 60° – 90° üçbucaqları),
+                showHeight true,
+                split 0.75,
+                highlightRight true,
+                showPythagoras false
+            },
+            {
+                title 4. Hündürlüyün (h) Hesablanması,
+                desc `
+                    pSol tərəfdəki strongABDstrong düzbucaqlı üçbucağına strongPifaqor teoreministrong tətbiq edəkp
+                    pHipotenuz strongc = 2strong, katetlərdən biri stronga = 1strong-dir. Digər kateti (hündürlüyü stronghstrong) tapaqp
+                `,
+                formula 1² + h² = 2²  ⇒  1 + h² = 4  ⇒  h² = 3  ⇒  h = √3,
+                showHeight true,
+                split 1,
+                highlightRight true,
+                showPythagoras true
+            },
+            {
+                title 5. Ümumi Nəticə və Qayda,
+                desc `
+                    pBeləliklə, strong30°–60°–90°strong düzbucaqlı üçbucağında tərəflər arasında sabit nisbət alınırp
+                    ul class=list-disc pl-5 space-y-1 text-slate-700
+                        listrong30°strong bucaq qarşısındakı katet strong1strong (və ya emxem)li
+                        listrong60°strong bucaq qarşısındakı katet strong√3strong (və ya emx√3em)li
+                        listrong90°strong bucaq qarşısındakı hipotenuz strong2strong (və ya em2xem)li
+                    ul
+                `,
+                formula Tərəflərin nisbəti = 1  √3  2,
+                showHeight true,
+                split 1,
+                highlightRight true,
+                showPythagoras true
+            }
+        ];
+
+         Nöqtə indikatorlarını yaratmaq
+        function initDots() {
+            stepDots.innerHTML = '';
+            steps.forEach((_, idx) = {
+                const dot = document.createElement('button');
+                dot.className = `w-2.5 h-2.5 rounded-full transition-all ${idx === currentStep  'bg-indigo-600 w-6'  'bg-slate-300 hoverbg-slate-400'}`;
+                dot.onclick = () = goToStep(idx);
+                stepDots.appendChild(dot);
+            });
+        }
+
+         Addıma keçid funksiyası
+        function goToStep(index) {
+            currentStep = Math.max(0, Math.min(steps.length - 1, index));
+            const step = steps[currentStep];
+
+            stepBadge.textContent = `Addım ${currentStep + 1}  ${steps.length}`;
+            stepTitle.textContent = step.title;
+            stepDescription.innerHTML = step.desc;
+
+            if (step.formula) {
+                formulaBox.innerHTML = step.formula;
+                formulaBox.classList.remove('hidden');
+            } else {
+                formulaBox.classList.add('hidden');
+            }
+
+            targetHeightLine = step.showHeight  1  0;
+            targetSplit = step.split;
+            splitSlider.value = step.split  100;
+
+            prevBtn.disabled = currentStep === 0;
+            nextBtn.textContent = currentStep === steps.length - 1  Yenidən başla ↺  Növbəti →;
+
+            initDots();
+        }
+
+         Düymə və Sürüşdürücü Hadisələri
+        prevBtn.addEventListener('click', () = goToStep(currentStep - 1));
+        nextBtn.addEventListener('click', () = {
+            if (currentStep === steps.length - 1) {
+                goToStep(0);
+            } else {
+                goToStep(currentStep + 1);
+            }
+        });
+
+        splitSlider.addEventListener('input', (e) = {
+            const val = parseFloat(e.target.value)  100;
+            targetSplit = val;
+            splitProgress = val;
+            if (val  0 && targetHeightLine === 0) {
+                targetHeightLine = 1;
+            }
+        });
+
+         Kanvas ölçüsünü tənzimləmək
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio  1;
+            canvas.width = rect.width  dpr;
+            canvas.height = rect.height  dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+         Bucaq qövsü çəkmək üçün köməkçi funksiya
+        function drawAngleArc(x, y, radius, startAngle, endAngle, label, color, labelOffset = 18) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, startAngle, endAngle);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+             Yazı mövqeyi
+            const midAngle = (startAngle + endAngle)  2;
+            const lx = x + (radius + labelOffset)  Math.cos(midAngle);
+            const ly = y + (radius + labelOffset)  Math.sin(midAngle);
+
+            ctx.fillStyle = color;
+            ctx.font = '600 13px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, lx, ly);
+        }
+
+         Əsas Çəkim Dövrü (Animation Loop)
+        function draw() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+             Hamar animasiya keçidləri
+            splitProgress += (targetSplit - splitProgress)  0.1;
+            heightLineProgress += (targetHeightLine - heightLineProgress)  0.12;
+
+            const step = steps[currentStep];
+
+             Üçbucağın ölçüləri (ekrana uyğun miqyaslama)
+            const sideLen = Math.min(width, height)  0.58;
+            const triHeight = sideLen  (Math.sqrt(3)  2);
+            const halfSide = sideLen  2;
+
+             Mərkəz koordinatları
+            const centerX = width  2;
+            const centerY = height  2 + triHeight  0.15;
+
+             Ayrılma məsafəsi (piksel ilə)
+            const maxOffset = Math.min(width  0.14, 55);
+            const offset = splitProgress  maxOffset;
+
+             --- SOL ÜÇBUCAQ (ABD) ---
+            ctx.save();
+            ctx.translate(-offset, 0);
+
+            const Ax = centerX - halfSide;
+            const Ay = centerY + triHeight  2;
+            const Bx = centerX;
+            const By = centerY - triHeight  2;
+            const Dx = centerX;
+            const Dy = centerY + triHeight  2;
+
+             Sol üçbucağın dolğusu
+            ctx.beginPath();
+            ctx.moveTo(Ax, Ay);
+            ctx.lineTo(Bx, By);
+            ctx.lineTo(Dx, Dy);
+            ctx.closePath();
+            ctx.fillStyle = step.highlightRight  'rgba(79, 70, 229, 0.12)'  'rgba(99, 102, 241, 0.08)';
+            ctx.fill();
+
+             Sol xarici tərəflər (AB və AD)
+            ctx.beginPath();
+            ctx.moveTo(Dx, Dy);
+            ctx.lineTo(Ax, Ay);
+            ctx.lineTo(Bx, By);
+            ctx.strokeStyle = '#312e81';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+             Sol hündürlük xətti (BD)
+            if (heightLineProgress  0.01) {
+                ctx.beginPath();
+                ctx.moveTo(Bx, By);
+                ctx.lineTo(Dx, By + (Dy - By)  heightLineProgress);
+                ctx.strokeStyle = '#e11d48';  Qırmızımtıl vurğu
+                ctx.lineWidth = 3;
+                if (splitProgress  0.1) {
+                    ctx.setLineDash([6, 6]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+             Bucaqlar (Sol üçbucaq)
+             60° (A bucağı)
+            drawAngleArc(Ax, Ay, 26, -Math.PI  3, 0, '60°', '#4338ca', 16);
+
+             30° (ABD bucağı)
+            if (heightLineProgress  0.5) {
+                drawAngleArc(Bx, By, 32, Math.PI  2, (2  Math.PI)  3, '30°', '#e11d48', 18);
+                
+                 90° işarəsi (D nöqtəsi)
+                const sq = 14;
+                ctx.strokeStyle = '#e11d48';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(Dx - sq, Dy - sq, sq, sq);
+            } else {
+                 Bütöv 60° təpə bucağı
+                drawAngleArc(Bx, By, 28, Math.PI  3, (2  Math.PI)  3, '60°', '#4338ca', 16);
+            }
+
+             Tərəf uzunluqları (Sol)
+            ctx.fillStyle = '#1e1b4b';
+            ctx.font = 'bold 16px Inter, sans-serif';
+            
+             AB = 2
+            ctx.fillText('2', (Ax + Bx)  2 - 18, (Ay + By)  2 - 8);
+
+             AD = 1 və ya AC = 2
+            if (heightLineProgress  0.5) {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText('1', (Ax + Dx)  2, Ay + 22);
+            } else {
+                ctx.fillText('2', centerX, Ay + 22);
+            }
+
+             Hündürlük yazısı (h = √3)
+            if (heightLineProgress  0.8) {
+                ctx.fillStyle = '#e11d48';
+                ctx.font = 'bold 16px Inter, sans-serif';
+                const hLabel = step.showPythagoras  'h = √3'  'h';
+                ctx.fillText(hLabel, Dx - (splitProgress  0.2  28  18), (By + Dy)  2);
+            }
+
+             Təpə nöqtələri (A, B, D)
+            ctx.fillStyle = '#475569';
+            ctx.font = '600 13px Inter, sans-serif';
+            ctx.fillText('A', Ax - 14, Ay + 12);
+            ctx.fillText('B', Bx - (splitProgress  0.1  8  0), By - 14);
+            if (heightLineProgress  0.5) {
+                ctx.fillText('D', Dx - (splitProgress  0.1  6  0), Dy + 22);
+            }
+
+            ctx.restore();
+
+             --- SAĞ ÜÇBUCAQ (CBD) ---
+            ctx.save();
+            ctx.translate(offset, 0);
+
+            const Cx = centerX + halfSide;
+            const Cy = centerY + triHeight  2;
+
+             Sağ üçbucağın dolğusu (ayrıldıqda bir az solğunlaşır ki, diqqət sol üçbucağa yönəlsin)
+            ctx.beginPath();
+            ctx.moveTo(Cx, Cy);
+            ctx.lineTo(Bx, By);
+            ctx.lineTo(Dx, Dy);
+            ctx.closePath();
+            ctx.fillStyle = step.highlightRight  'rgba(148, 163, 184, 0.12)'  'rgba(99, 102, 241, 0.08)';
+            ctx.fill();
+
+             Sağ xarici tərəflər (BC və DC)
+            ctx.beginPath();
+            ctx.moveTo(Dx, Dy);
+            ctx.lineTo(Cx, Cy);
+            ctx.lineTo(Bx, By);
+            ctx.strokeStyle = step.highlightRight  '#64748b'  '#312e81';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+
+             Ayrıldıqda sağ üçbucağın da hündürlük xəttini çək
+            if (splitProgress  0.05) {
+                ctx.beginPath();
+                ctx.moveTo(Bx, By);
+                ctx.lineTo(Dx, Dy);
+                ctx.strokeStyle = step.highlightRight  '#94a3b8'  '#e11d48';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+
+             60° (C bucağı)
+            drawAngleArc(Cx, Cy, 26, Math.PI, (4  Math.PI)  3, '60°', step.highlightRight  '#64748b'  '#4338ca', 16);
+
+             30° (CBD bucağı)
+            if (heightLineProgress  0.5) {
+                drawAngleArc(Bx, By, 32, Math.PI  3, Math.PI  2, '30°', step.highlightRight  '#64748b'  '#e11d48', 18);
+            }
+
+             Tərəf uzunluqları (Sağ)
+            ctx.fillStyle = step.highlightRight  '#64748b'  '#1e1b4b';
+            ctx.font = 'bold 16px Inter, sans-serif';
+            ctx.fillText('2', (Cx + Bx)  2 + 18, (Cy + By)  2 - 8);
+
+            if (heightLineProgress  0.5) {
+                ctx.fillText('1', (Cx + Dx)  2, Cy + 22);
+            }
+
+             Təpə nöqtələri (C və ayrıldıqda B, D)
+            ctx.fillStyle = '#475569';
+            ctx.font = '600 13px Inter, sans-serif';
+            ctx.fillText('C', Cx + 14, Cy + 12);
+            if (splitProgress  0.1) {
+                ctx.fillText('B', Bx + 8, By - 14);
+                ctx.fillText('D', Dx + 8, Dy + 22);
+            }
+
+            ctx.restore();
+
+            requestAnimationFrame(draw);
+        }
+
+         Başlatma
+        window.onload = () = {
+            resizeCanvas();
+            goToStep(0);
+            draw();
+        };
+    script
+body
+html
